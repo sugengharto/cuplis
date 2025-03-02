@@ -3,6 +3,7 @@ const fs = require('fs');
 
 const EMAIL = "emailkamu@gmail.com";  // Ganti dengan emailmu
 const PASSWORD = "passwordmu";        // Ganti dengan passwordmu
+const CHROME_PATH = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"; // Sesuaikan dengan lokasi Chrome-mu
 
 async function loginGoogle(page) {
     await page.goto("https://accounts.google.com/signin", { waitUntil: "networkidle2" });
@@ -50,9 +51,13 @@ async function buatBlog(page, namaBlog, urlBlog) {
 }
 
 async function processFile() {
-    const browser = await puppeteer.launch({ headless: false });
-    const page = await browser.newPage();
+    const browser = await puppeteer.launch({ 
+        headless: false,
+        executablePath: CHROME_PATH, // Pakai Chrome yang kompatibel
+        args: ['--no-sandbox', '--disable-setuid-sandbox'] // Tambahkan argumen jika perlu
+    });
 
+    const page = await browser.newPage();
     await loginGoogle(page);
 
     const data = fs.readFileSync('cepot.txt', 'utf8');
