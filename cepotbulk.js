@@ -1,76 +1,65 @@
-const puppeteer = require('puppeteer');
-const fs = require('fs');
+const { Builder, By, until } = require("selenium-webdriver");
+const fs = require("fs");
+const readline = require("readline");
 
-const EMAIL = "emailkamu@gmail.com";  // Ganti dengan emailmu
-const PASSWORD = "passwordmu";        // Ganti dengan passwordmu
-const CHROME_PATH = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"; // Sesuaikan dengan lokasi Chrome-mu
+async function createBlog(blogName, blogUrl) {
+    let driver = await new Builder().forBrowser("chrome").build();
 
-async function loginGoogle(page) {
-    await page.goto("https://accounts.google.com/signin", { waitUntil: "networkidle2" });
-
-    // Masukkan Email
-    await page.type("#identifierId", EMAIL);
-    await page.keyboard.press("Enter");
-    await page.waitForTimeout(3000);
-
-    // Masukkan Password
-    await page.type("input[name='password']", PASSWORD);
-    await page.keyboard.press("Enter");
-    await page.waitForTimeout(5000);
-
-    console.log("✅ Berhasil login ke Google");
-}
-
-async function buatBlog(page, namaBlog, urlBlog) {
     try {
-        await page.goto("https://www.blogger.com/");
-        await page.waitForTimeout(3000);
+        await driver.get("https://www.blogger.com/");
 
-        // Klik tombol "Buat Blog"
-        await page.click("a[href*='create-blog']");
-        await page.waitForTimeout(3000);
+        // Tunggu tombol "Buat Blog Baru" muncul
+        let createBlogBtn = await driver.wait(
+            until.elementLocated(By.xpath("//button[contains(text(),'Buat Blog')]")),
+            10000
+        );
+        await createBlogBtn.click();
+
+        await driver.sleep(2000);
 
         // Isi Nama Blog
-        await page.type("input[placeholder='Give your blog a name']", namaBlog);
-        await page.keyboard.press("Enter");
-        await page.waitForTimeout(3000);
+        let blogNameField = await driver.findElement(By.name("title"));
+        await blogNameField.sendKeys(blogName);
 
         // Isi URL Blog
-        await page.type("input[placeholder='Give your blog an address']", urlBlog);
-        await page.keyboard.press("Enter");
-        await page.waitForTimeout(3000);
+        let blogUrlField = await driver.findElement(By.name("address"));
+        await blogUrlField.sendKeys(blogUrl);
 
-        // Klik Selesai
-        await page.click("button:contains('Finish')");
-        await page.waitForTimeout(3000);
+        await driver.sleep(2000);
 
-        console.log(`✅ Blog ${namaBlog} (${urlBlog}.blogspot.com) berhasil dibuat!`);
+        // Pilih tema pertama
+        let themes = await driver.findElements(By.className("nqaJIf"));
+        if (themes.length > 0) {
+            await themes[0].click();
+        }
+
+        await driver.sleep(2000);
+
+        // Klik tombol "Buat Blog"
+        let createButton = await driver.findElement(By.xpath("//button[contains(text(),'Buat blog')]"));
+        await createButton.click();
+
+        console.log(`Blog "${blogName}" (${blogUrl}.blogspot.com) berhasil dibuat!`);
+
+        await driver.sleep(5000);
     } catch (error) {
-        console.error(`❌ Gagal membuat blog ${namaBlog}:`, error);
+        console.error("Error:", error);
+    } finally {
+        await driver.quit();
     }
 }
 
-async function processFile() {
-    const browser = await puppeteer.launch({ 
-        headless: false,
-        executablePath: CHROME_PATH, // Pakai Chrome yang kompatibel
-        args: ['--no-sandbox', '--disable-setuid-sandbox'] // Tambahkan argumen jika perlu
-    });
+// Baca file cepot.txt dan buat blog satu per satu
+async function start() {
+    const fileStream = fs.createReadStream("cepot.txt");
+    const rl = readline.createInterface({ input: fileStream });
 
-    const page = await browser.newPage();
-    await loginGoogle(page);
-
-    const data = fs.readFileSync('cepot.txt', 'utf8');
-    const lines = data.split('\n');
-
-    for (let line of lines) {
-        if (!line.trim()) continue;
-        const [namaBlog, urlBlog] = line.split('|');
-        console.log(`🚀 Membuat blog: ${namaBlog} (${urlBlog}.blogspot.com)`);
-        await buatBlog(page, namaBlog.trim(), urlBlog.trim());
+    for await (const line of rl) {
+        const [blogName, blogUrl] = line.split(",");
+        if (blogName && blogUrl) {
+            await createBlog(blogName.trim(), blogUrl.trim());
+        }
     }
-
-    await browser.close();
 }
 
-processFile();
+start();
